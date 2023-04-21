@@ -1,7 +1,7 @@
 import pickle, os
 import logging
 
-import requests
+import requests  # type: ignore
 
 from ..config import VERSION
 from ..returnvalues import ReturnValue
@@ -15,7 +15,7 @@ def load_hotreload(core):
     core.dump_login_status = dump_login_status
     core.load_login_status = load_login_status
 
-def dump_login_status(self, fileDir=None):
+async def dump_login_status(self, fileDir=None):
     fileDir = fileDir or self.hotReloadDir
     try:
         with open(fileDir, 'w') as f:
@@ -32,7 +32,7 @@ def dump_login_status(self, fileDir=None):
         pickle.dump(status, f)
     logger.debug('Dump login status for hot reload successfully.')
 
-def load_login_status(self, fileDir,
+async def load_login_status(self, fileDir,
         loginCallback=None, exitCallback=None):
     try:
         with open(fileDir, 'rb') as f:
@@ -44,7 +44,7 @@ def load_login_status(self, fileDir,
             'Ret': -1002, }})
 
     if j.get('version', '') != VERSION:
-        logger.debug(('you have updated itchat from %s to %s, ' + 
+        logger.debug(('you have updated itchat from %s to %s, ' +
             'so cached status is ignored') % (
             j.get('version', 'old version'), VERSION))
         return ReturnValue({'BaseResponse': {
@@ -61,7 +61,7 @@ def load_login_status(self, fileDir,
         msgList = contactList = None
     if (msgList or contactList) is None:
         self.logout()
-        load_last_login_status(self.s, j['cookies'])
+        await load_last_login_status(self.s, j['cookies'])
         logger.debug('server refused, loading login status failed.')
         return ReturnValue({'BaseResponse': {
             'ErrMsg': 'server refused, loading login status failed.',
@@ -76,15 +76,15 @@ def load_login_status(self, fileDir,
         if msgList:
             msgList = produce_msg(self, msgList)
             for msg in msgList: self.msgList.put(msg)
-        self.start_receiving(exitCallback)
+        await self.start_receiving(exitCallback)
         logger.debug('loading login status succeeded.')
         if hasattr(loginCallback, '__call__'):
-            loginCallback()
+            await loginCallback(self.storageClass.userName)
         return ReturnValue({'BaseResponse': {
             'ErrMsg': 'loading login status succeeded.',
             'Ret': 0, }})
 
-def load_last_login_status(session, cookiesDict):
+async def load_last_login_status(session, cookiesDict):
     try:
         session.cookies = requests.utils.cookiejar_from_dict({
             'webwxuvid': cookiesDict['webwxuvid'],
