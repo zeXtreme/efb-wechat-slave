@@ -69,7 +69,11 @@ class Bot(object):
         """
 
         self.core = itchat.Core()
-        self.user_agent = USER_AGENT
+        if user_agent is None:
+            self.user_agent = USER_AGENT
+        else:
+            self.user_agent = user_agent
+
         itchat.instanceList.append(self)
 
         enhance_connection(self.core.s)
