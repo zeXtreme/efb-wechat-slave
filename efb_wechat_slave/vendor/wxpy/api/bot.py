@@ -22,6 +22,7 @@ from ..compatible.utils import force_encoded_string_output
 from ..utils import PuidMap
 from ..utils import enhance_connection, enhance_webwx_request, ensure_list, get_user_name, handle_response, \
     start_new_thread, wrap_user_name
+from efb_wechat_slave.vendor.itchat.config import USER_AGENT
 
 logger = logging.getLogger(__name__)
 itchat.set_logging(showOnCmd=False, loggingLevel=logging.NOTSET)
@@ -46,6 +47,7 @@ class Bot(object):
     def __init__(
             self, cache_path=None, console_qr=False, qr_path=None,
             qr_callback=None, login_callback=None, logout_callback=None,
+            user_agent=None,
             start_immediately=True
     ):
         """
@@ -62,10 +64,12 @@ class Bot(object):
         :param qr_callback: 获得二维码后的回调，可以用来定义二维码的处理方式，接收参数: uuid, status, qrcode
         :param login_callback: 登陆成功后的回调，若不指定，将进行清屏操作，并删除二维码文件
         :param logout_callback: 登出时的回调
+        :param user_agent: User agent used during request.
         :param start_immediately: Start the bot immediately.
         """
 
         self.core = itchat.Core()
+        self.user_agent = USER_AGENT
         itchat.instanceList.append(self)
 
         enhance_connection(self.core.s)
