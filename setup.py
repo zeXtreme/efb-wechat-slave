@@ -11,7 +11,7 @@ long_description = open('README.rst', encoding='utf-8').read()
 tests_require = ["pytest", "mypy"]
 
 setup(
-    name='efb-wechat-slave-itchat-uos',
+    name='efb-wechat-slave',
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     version=__version__,
     description='WeChat Slave Channel for EH Forwarder Bot, based on WeChat Web API.',
