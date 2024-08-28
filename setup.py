@@ -7,19 +7,19 @@ if sys.version_info < (3, 6):
 __version__ = ""
 exec(open('efb_wechat_slave/__version__.py').read())
 
-long_description = open('README.rst').read()
+long_description = open('README.rst', encoding='utf-8').read()
 tests_require = ["pytest", "mypy"]
 
 setup(
-    name='efb-wechat-slave',
+    name='efb-wechat-slave-itchat-uos',
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     version=__version__,
     description='WeChat Slave Channel for EH Forwarder Bot, based on WeChat Web API.',
     long_description=long_description,
     include_package_data=True,
-    author='Eana Hufwe',
-    author_email='ilove@1a23.com',
-    url='https://ews.1a23.studio',
+    author='HoganKing',
+    author_email='',
+    url='https://github.com/HoganGolden/efb-wechat-slave',
     license='AGPLv3+',
     python_requires='>=3.6',
     keywords=['ehforwarderbot', 'EH Forwarder Bot', 'EH Forwarder Bot Slave Channel',

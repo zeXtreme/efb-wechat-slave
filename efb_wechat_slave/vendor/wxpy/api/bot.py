@@ -22,6 +22,7 @@ from ..compatible.utils import force_encoded_string_output
 from ..utils import PuidMap
 from ..utils import enhance_connection, enhance_webwx_request, ensure_list, get_user_name, handle_response, \
     start_new_thread, wrap_user_name
+from efb_wechat_slave.vendor.itchat.config import USER_AGENT
 
 logger = logging.getLogger(__name__)
 itchat.set_logging(showOnCmd=False, loggingLevel=logging.NOTSET)
@@ -67,8 +68,12 @@ class Bot(object):
         :param start_immediately: Start the bot immediately.
         """
 
-        self.core = itchat.Core(user_agent)
-        self.user_agent = self.core.user_agent
+        self.core = itchat.Core()
+        if user_agent is None:
+            self.user_agent = USER_AGENT
+        else:
+            self.user_agent = user_agent
+
         itchat.instanceList.append(self)
 
         enhance_connection(self.core.s)
