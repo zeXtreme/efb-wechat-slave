@@ -1,11 +1,11 @@
-import time
-import re
+import copy
 import io
 import json
-import copy
 import logging
+import re
+import time
 
-from .. import config, utils
+from .. import utils
 from ..returnvalues import ReturnValue
 from ..storage import contact_change
 from ..utils import update_info_dict
@@ -22,7 +22,7 @@ def load_contact(core):
     core.get_mps = get_mps
     core.set_alias = set_alias
     core.set_pinned = set_pinned
-    core.accept_friend = accept_friend
+    core.add_friend = add_friend
     core.get_head_img = get_head_img
     core.create_chatroom = create_chatroom
     core.set_chatroom_name = set_chatroom_name
@@ -37,7 +37,7 @@ def update_chatroom(self, userName, detailedMember=False):
         self.loginInfo['url'], int(time.time()))
     headers = {
         'ContentType': 'application/json; charset=UTF-8',
-        'User-Agent': config.USER_AGENT}
+        'User-Agent': self.user_agent}
     data = {
         'BaseRequest': self.loginInfo['BaseRequest'],
         'Count': len(userName),
@@ -57,24 +57,23 @@ def update_chatroom(self, userName, detailedMember=False):
                 self.loginInfo['url'], int(time.time()))
             headers = {
                 'ContentType': 'application/json; charset=UTF-8',
-                'User-Agent': config.USER_AGENT, }
+                'User-Agent': self.user_agent, }
             data = {
                 'BaseRequest': self.loginInfo['BaseRequest'],
                 'Count': len(memberList),
                 'List': [{
                     'UserName': member['UserName'],
-                    'EncryChatRoomId': encryChatroomId}
+                    'EncryChatRoomId': encryChatroomId} \
                     for member in memberList], }
             return json.loads(self.s.post(url, data=json.dumps(data), headers=headers
                                           ).content.decode('utf8', 'replace'))['ContactList']
+
         MAX_GET_NUMBER = 50
         for chatroom in chatroomList:
             totalMemberList = []
             for i in range(int(len(chatroom['MemberList']) / MAX_GET_NUMBER + 1)):
-                memberList = chatroom['MemberList'][i *
-                                                    MAX_GET_NUMBER: (i+1)*MAX_GET_NUMBER]
-                totalMemberList += get_detailed_member_info(
-                    chatroom['EncryChatRoomId'], memberList)
+                memberList = chatroom['MemberList'][i * MAX_GET_NUMBER: (i + 1) * MAX_GET_NUMBER]
+                totalMemberList += get_detailed_member_info(chatroom['EncryChatRoomId'], memberList)
             chatroom['MemberList'] = totalMemberList
 
     update_local_chatrooms(self, chatroomList)
@@ -90,7 +89,7 @@ def update_friend(self, userName):
         self.loginInfo['url'], int(time.time()))
     headers = {
         'ContentType': 'application/json; charset=UTF-8',
-        'User-Agent': config.USER_AGENT}
+        'User-Agent': self.user_agent}
     data = {
         'BaseRequest': self.loginInfo['BaseRequest'],
         'Count': len(userName),
@@ -108,10 +107,10 @@ def update_friend(self, userName):
 
 @contact_change
 def update_local_chatrooms(core, l):
-    '''
+    """
         get a list of chatrooms for updating local chatrooms
         return a list of given chatrooms with updated info
-    '''
+    """
     for chatroom in l:
         # format new chatrooms
         utils.emoji_formatter(chatroom, 'NickName')
@@ -145,8 +144,7 @@ def update_local_chatrooms(core, l):
         # delete useless members
         if len(chatroom['MemberList']) != len(oldChatroom['MemberList']) and \
                 chatroom['MemberList']:
-            existsUserNames = [member['UserName']
-                               for member in chatroom['MemberList']]
+            existsUserNames = [member['UserName'] for member in chatroom['MemberList']]
             delList = []
             for i, member in enumerate(oldChatroom['MemberList']):
                 if member['UserName'] not in existsUserNames:
@@ -179,9 +177,9 @@ def update_local_chatrooms(core, l):
 
 @contact_change
 def update_local_friends(core, l):
-    '''
+    """
         get a list of friends or mps for updating local contact
-    '''
+    """
     fullList = core.memberList + core.mpList
     for friend in l:
         if 'NickName' in friend:
@@ -204,13 +202,13 @@ def update_local_friends(core, l):
 
 @contact_change
 def update_local_uin(core, msg):
-    '''
+    """
         content contains uins and StatusNotifyUserName contains username
         they are in same order, so what I do is to pair them together
 
         I caught an exception in this method while not knowing why
         but don't worry, it won't cause any problem
-    '''
+    """
     uins = re.search('<username>([^<]*?)<', msg['Content'])
     usernameChangedList = []
     r = {
@@ -222,8 +220,7 @@ def update_local_uin(core, msg):
         usernames = msg['StatusNotifyUserName'].split(',')
         if 0 < len(uins) == len(usernames):
             for uin, username in zip(uins, usernames):
-                if not '@' in username:
-                    continue
+                if not '@' in username: continue
                 fullContact = core.memberList + core.chatroomList + core.mpList
                 userDicts = utils.search_dict_list(fullContact,
                                                    'UserName', username)
@@ -284,17 +281,17 @@ def get_contact(self, update=False):
                                                           int(time.time()), seq, self.loginInfo['skey'])
         headers = {
             'ContentType': 'application/json; charset=UTF-8',
-            'User-Agent': config.USER_AGENT, }
+            'User-Agent': self.user_agent, }
         try:
             r = self.s.get(url, headers=headers)
         except:
-            logger.info(
-                'Failed to fetch contact, that may because of the amount of your chatrooms')
+            logger.info('Failed to fetch contact, that may because of the amount of your chatrooms')
             for chatroom in self.get_chatrooms():
                 self.update_chatroom(chatroom['UserName'], detailedMember=True)
             return 0, []
         j = json.loads(r.content.decode('utf-8', 'replace'))
         return j.get('Seq', 0), j.get('MemberList')
+
     seq, memberList = 0, []
     while 1:
         seq, batchMemberList = _get_contact(seq)
@@ -333,8 +330,7 @@ def get_chatrooms(self, update=False, contactOnly=False):
 
 
 def get_mps(self, update=False):
-    if update:
-        self.get_contact(update=True)
+    if update: self.get_contact(update=True)
     return utils.contact_deep_copy(self, self.mpList)
 
 
@@ -351,7 +347,7 @@ def set_alias(self, userName, alias):
         'CmdId': 2,
         'RemarkName': alias,
         'BaseRequest': self.loginInfo['BaseRequest'], }
-    headers = {'User-Agent': config.USER_AGENT}
+    headers = {'User-Agent': self.user_agent}
     r = self.s.post(url, json.dumps(data, ensure_ascii=False).encode('utf8'),
                     headers=headers)
     r = ReturnValue(rawResponse=r)
@@ -368,27 +364,32 @@ def set_pinned(self, userName, isPinned=True):
         'CmdId': 3,
         'OP': int(isPinned),
         'BaseRequest': self.loginInfo['BaseRequest'], }
-    headers = {'User-Agent': config.USER_AGENT}
+    headers = {'User-Agent': self.user_agent}
     r = self.s.post(url, json=data, headers=headers)
     return ReturnValue(rawResponse=r)
 
 
-def accept_friend(self, userName, v4='', autoUpdate=True):
-    url = f"{self.loginInfo['url']}/webwxverifyuser?r={int(time.time())}&pass_ticket={self.loginInfo['pass_ticket']}"
+def add_friend(self, userName, status=2, verifyContent='', autoUpdate=True):
+    """ Add a friend or accept a friend
+        * for adding status should be 2
+        * for accepting status should be 3
+    """
+    url = '%s/webwxverifyuser?r=%s&pass_ticket=%s' % (
+        self.loginInfo['url'], int(time.time()), self.loginInfo['pass_ticket'])
     data = {
         'BaseRequest': self.loginInfo['BaseRequest'],
-        'Opcode': 3,  # 3
+        'Opcode': status,  # 3
         'VerifyUserListSize': 1,
         'VerifyUserList': [{
             'Value': userName,
-            'VerifyUserTicket': v4, }],
-        'VerifyContent': '',
+            'VerifyUserTicket': '', }],
+        'VerifyContent': verifyContent,
         'SceneListCount': 1,
         'SceneList': [33],
         'skey': self.loginInfo['skey'], }
     headers = {
         'ContentType': 'application/json; charset=UTF-8',
-        'User-Agent': config.USER_AGENT}
+        'User-Agent': self.user_agent}
     r = self.s.post(url, headers=headers,
                     data=json.dumps(data, ensure_ascii=False).encode('utf8', 'replace'))
     if autoUpdate:
@@ -397,18 +398,19 @@ def accept_friend(self, userName, v4='', autoUpdate=True):
 
 
 def get_head_img(self, userName=None, chatroomUserName=None, picDir=None):
-    ''' get head image
+    """ get head image
      * if you want to get chatroom header: only set chatroomUserName
      * if you want to get friend header: only set userName
      * if you want to get chatroom member header: set both
-    '''
+    """
     params = {
         'userName': userName or chatroomUserName or self.storageClass.userName,
         'skey': self.loginInfo['skey'],
         'type': 'big', }
     url = '%s/webwxgeticon' % self.loginInfo['url']
     if chatroomUserName is None:
-        infoDict = self.storageClass.search_friends(userName=userName)
+        infoDict = self.storageClass.search_friends(userName=userName) or \
+                   self.storageClass.search_mps(userName=userName)
         if infoDict is None:
             return ReturnValue({'BaseResponse': {
                 'ErrMsg': 'No friend found',
@@ -417,17 +419,15 @@ def get_head_img(self, userName=None, chatroomUserName=None, picDir=None):
         if userName is None:
             url = '%s/webwxgetheadimg' % self.loginInfo['url']
         else:
-            chatroom = self.storageClass.search_chatrooms(
-                userName=chatroomUserName)
+            chatroom = self.storageClass.search_chatrooms(userName=chatroomUserName)
             if chatroomUserName is None:
                 return ReturnValue({'BaseResponse': {
                     'ErrMsg': 'No chatroom found',
                     'Ret': -1001, }})
             if 'EncryChatRoomId' in chatroom:
                 params['chatroomid'] = chatroom['EncryChatRoomId']
-            params['chatroomid'] = params.get(
-                'chatroomid') or chatroom['UserName']
-    headers = {'User-Agent': config.USER_AGENT}
+            params['chatroomid'] = params.get('chatroomid') or chatroom['UserName']
+    headers = {'User-Agent': self.user_agent}
     r = self.s.get(url, params=params, stream=True, headers=headers)
     tempStorage = io.BytesIO()
     for block in r.iter_content(1024):
@@ -448,12 +448,12 @@ def create_chatroom(self, memberList, topic=''):
         self.loginInfo['url'], self.loginInfo['pass_ticket'], int(time.time()))
     data = {
         'BaseRequest': self.loginInfo['BaseRequest'],
-        'MemberCount': len(memberList.split(',')),
-        'MemberList': [{'UserName': member} for member in memberList.split(',')],
+        'MemberCount': len(memberList),
+        'MemberList': [{'UserName': member['UserName']} for member in memberList],
         'Topic': topic, }
     headers = {
         'content-type': 'application/json; charset=UTF-8',
-        'User-Agent': config.USER_AGENT}
+        'User-Agent': self.user_agent}
     r = self.s.post(url, headers=headers,
                     data=json.dumps(data, ensure_ascii=False).encode('utf8', 'ignore'))
     return ReturnValue(rawResponse=r)
@@ -468,7 +468,7 @@ def set_chatroom_name(self, chatroomUserName, name):
         'NewTopic': name, }
     headers = {
         'content-type': 'application/json; charset=UTF-8',
-        'User-Agent': config.USER_AGENT}
+        'User-Agent': self.user_agent}
     r = self.s.post(url, headers=headers,
                     data=json.dumps(data, ensure_ascii=False).encode('utf8', 'ignore'))
     return ReturnValue(rawResponse=r)
@@ -483,23 +483,21 @@ def delete_member_from_chatroom(self, chatroomUserName, memberList):
         'DelMemberList': ','.join([member['UserName'] for member in memberList]), }
     headers = {
         'content-type': 'application/json; charset=UTF-8',
-        'User-Agent': config.USER_AGENT}
+        'User-Agent': self.user_agent}
     r = self.s.post(url, data=json.dumps(data), headers=headers)
     return ReturnValue(rawResponse=r)
 
 
 def add_member_into_chatroom(self, chatroomUserName, memberList,
                              useInvitation=False):
-    ''' add or invite member into chatroom
+    """ add or invite member into chatroom
      * there are two ways to get members into chatroom: invite or directly add
      * but for chatrooms with more than 40 users, you can only use invite
      * but don't worry we will auto-force userInvitation for you when necessary
-    '''
+    """
     if not useInvitation:
-        chatroom = self.storageClass.search_chatrooms(
-            userName=chatroomUserName)
-        if not chatroom:
-            chatroom = self.update_chatroom(chatroomUserName)
+        chatroom = self.storageClass.search_chatrooms(userName=chatroomUserName)
+        if not chatroom: chatroom = self.update_chatroom(chatroomUserName)
         if len(chatroom['MemberList']) > self.loginInfo['InviteStartCount']:
             useInvitation = True
     if useInvitation:
@@ -511,9 +509,9 @@ def add_member_into_chatroom(self, chatroomUserName, memberList,
     params = {
         'BaseRequest': self.loginInfo['BaseRequest'],
         'ChatRoomName': chatroomUserName,
-        memberKeyName: memberList, }
+        memberKeyName: ','.join([member['UserName'] for member in memberList]), }
     headers = {
         'content-type': 'application/json; charset=UTF-8',
-        'User-Agent': config.USER_AGENT}
+        'User-Agent': self.user_agent}
     r = self.s.post(url, data=json.dumps(params), headers=headers)
     return ReturnValue(rawResponse=r)
